@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Armador de Coberturas · MATBA-ROFEX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0d1117;
+  --bg2:       #161b22;
+  --bg3:       #21262d;
+  --border:    #30363d;
+  --text:      #e6edf3;
+  --muted:     #8b949e;
+  --accent:    #58a6ff;
+  --green:     #3fb950;
+  --red:       #f85149;
+  --yellow:    #d29922;
+  --purple:    #bc8cff;
+  --orange:    #ffa657;
+  --teal:      #39d353;
+  --radius:    6px;
+  --mono:      'IBM Plex Mono', monospace;
+  --sans:      'IBM Plex Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+
+/* HEADER */
+.header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.logo { font-family: var(--mono); font-size: 13px; color: var(--accent); letter-spacing: 0.05em; }
+.logo span { color: var(--muted); }
+.market-pills { display: flex; gap: 6px; }
+.market-pill { font-family: var(--mono); font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all .15s; white-space: nowrap; }
+.market-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,.08); }
+.market-pill:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+/* LAYOUT */
+.main { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 53px); }
+.sidebar { background: var(--bg2); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+.content { padding: 20px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
+
+/* SECTION TITLES */
+.section-title { font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+/* MARKET INFO */
+.market-info { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.market-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+.market-row + .market-row { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
+.market-label { color: var(--muted); font-size: 12px; }
+.market-val { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+.market-edit { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 3px 8px; width: 90px; text-align: right; }
+.market-edit:focus { outline: none; border-color: var(--accent); }
+
+/* PRESETS */
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.preset-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; cursor: pointer; transition: all .15s; text-align: left; }
+.preset-btn:hover { border-color: var(--accent); background: rgba(88,166,255,.05); }
+.preset-name { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+.preset-risk { font-family: var(--mono); font-size: 10px; }
+.risk-low  { color: var(--green); }
+.risk-mid  { color: var(--yellow); }
+.risk-high { color: var(--red); }
+
+/* LEGS */
+.legs-container { display: flex; flex-direction: column; gap: 8px; }
+.leg { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; position: relative; }
+.leg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.leg-num { font-family: var(--mono); font-size: 10px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; }
+.leg-remove { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; transition: color .15s; }
+.leg-remove:hover { color: var(--red); }
+.leg-fields { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+.field { display: flex; flex-direction: column; gap: 3px; }
+.field label { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+select, input[type=number] { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 5px 7px; width: 100%; transition: border-color .15s; }
+select:focus, input:focus { outline: none; border-color: var(--accent); }
+select option { background: var(--bg2); }
+
+.btn-add-leg { background: none; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); cursor: pointer; padding: 8px; font-size: 12px; width: 100%; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-add-leg:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ACTION BUTTONS */
+.btn-calc { background: var(--accent); border: none; border-radius: var(--radius); color: #0d1117; font-family: var(--sans); font-size: 13px; font-weight: 600; padding: 10px 20px; cursor: pointer; width: 100%; transition: opacity .15s; }
+.btn-calc:hover { opacity: .85; }
+.btn-clear { background: none; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: 12px; padding: 7px 14px; cursor: pointer; transition: all .15s; flex: 1; }
+.btn-clear:hover { border-color: var(--red); color: var(--red); }
+
+/* RESULTS METRICS */
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.metric-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.metric-card-label { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; }
+.metric-card-val { font-family: var(--mono); font-size: 18px; font-weight: 500; }
+.mc-pos { color: var(--green); }
+.mc-neg { color: var(--red); }
+.mc-neu { color: var(--yellow); }
+.mc-acc { color: var(--accent); }
+
+/* CHART */
+.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.chart-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.chart-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.chart-subtitle { font-size: 11px; color: var(--muted); }
+.chart-wrap { position: relative; width: 100%; }
+.toggle-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.toggle-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-family: var(--mono); color: var(--muted); cursor: pointer; user-select: none; }
+.toggle-item input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+
+/* TABLE */
+.table-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+thead { background: var(--bg3); }
+th { padding: 8px 12px; text-align: right; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child { text-align: left; }
+td { padding: 6px 12px; text-align: right; border-bottom: 1px solid rgba(48,54,61,.5); }
+td:first-child { text-align: left; color: var(--muted); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(88,166,255,.04); }
+.td-pos { color: var(--green); }
+.td-neg { color: var(--red); }
+.td-neu { color: var(--text); }
+.td-highlight { background: rgba(88,166,255,.06) !important; }
+.td-highlight td { font-weight: 500; }
+
+/* BREAKDOWN */
+.breakdown-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.breakdown-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(48,54,61,.5); }
+.breakdown-row:last-child { border-bottom: none; }
+.breakdown-label { font-size: 12px; color: var(--muted); }
+.breakdown-val { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+.breakdown-total { border-top: 1px solid var(--border) !important; margin-top: 4px; padding-top: 8px !important; }
+
+/* EMPTY STATE */
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--muted); text-align: center; gap: 10px; }
+.empty-icon { font-size: 36px; opacity: .3; }
+.empty-text { font-size: 13px; line-height: 1.6; }
+
+/* DIFF INDICATOR */
+.diff-badge { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+.diff-pos { background: rgba(63,185,80,.12); color: var(--green); border: 1px solid rgba(63,185,80,.2); }
+.diff-neg { background: rgba(248,81,73,.12); color: var(--red); border: 1px solid rgba(248,81,73,.2); }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  .metrics-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 600px) {
+  .leg-fields { grid-template-columns: 1fr 1fr; }
+  .metrics-grid { grid-template-columns: 1fr 1fr; }
+  .header { flex-wrap: wrap; gap: 8px; }
+  .market-pills { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">MATBA<span>·</span>ROFEX <span style="color:var(--border)">|</span> armador de coberturas</div>
+  <div class="market-pills" id="marketPills"></div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+
+    <!-- MARKET INFO -->
+    <div>
+      <div class="section-title">Mercado activo</div>
+      <div class="market-info">
+        <div class="market-row">
+          <span class="market-label">Contrato</span>
+          <span class="market-val" id="mktName" style="color:var(--accent)">—</span>
+        </div>
+        <div class="market-row">
+          <span class="market-label">Precio futuro (USD/t)</span>
+          <input class="market-edit" id="futPx" type="number" step="0.1" value="323.2" onchange="updateMarket()">
+        </div>
+        <div class="market-row">
+          <span class="market-label">Precio spot (USD/t)</span>
+          <input class="market-edit" id="spotPx" type="number" step="0.1" value="323.29" onchange="updateMarket()">
+        </div>
+        <div class="market-row">
+          <span class="market-label">Rango análisis mín</span>
+          <input class="market-edit" id="rangeMin" type="number" step="1" value="270" onchange="calculate()">
+        </div>
+        <div class="market-row">
+          <span class="market-label">Rango análisis máx</span>
+          <input class="market-edit" id="rangeMax" type="number" step="1" value="380" onchange="calculate()">
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESETS -->
+    <div>
+      <div class="section-title">Estrategias predefinidas</div>
+      <div class="preset-grid" id="presetGrid"></div>
+    </div>
+
+    <!-- PATAS -->
+    <div>
+      <div class="section-title">Patas de la estrategia</div>
+      <div class="legs-container" id="legsContainer"></div>
+      <button class="btn-add-leg" id="addLegBtn" onclick="addLeg()">
+        <span>+</span> agregar pata
+      </button>
+    </div>
+
+    <!-- ACTIONS -->
+    <div style="display:flex;gap:8px;margin-top:auto;">
+      <button class="btn-clear" onclick="clearLegs()">Limpiar</button>
+      <button class="btn-calc" onclick="calculate()">Calcular estrategia →</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="content" id="resultsPane">
+    <div class="empty">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">Cargá las patas de tu estrategia<br>y presioná <strong>Calcular</strong></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MARKETS = {
+  sj_may: { name:'Soja Mayo 26', fut:323.2, spot:323.29, min:270, max:380,
+    presets:[
+      { name:'Call vendido', risk:'bajo', legs:[{t:'Físico',d:1,k:323.2,pr:0},{t:'Call',d:-1,k:328,pr:8.6}] },
+      { name:'Bull spread', risk:'bajo', legs:[{t:'Call',d:1,k:320,pr:4.3},{t:'Call',d:-1,k:328,pr:2.8}] },
+      { name:'Bear spread puts', risk:'bajo', legs:[{t:'Put',d:1,k:328,pr:6.1},{t:'Put',d:-1,k:320,pr:1.7}] },
+      { name:'Collar', risk:'bajo', legs:[{t:'Físico',d:1,k:323.2,pr:0},{t:'Put',d:1,k:320,pr:1.7},{t:'Call',d:-1,k:332,pr:0.5}] },
+      { name:'Cono vendido', risk:'alto', legs:[{t:'Call',d:-1,k:324,pr:2.8},{t:'Put',d:-1,k:324,pr:4.0}] },
+      { name:'Mariposa', risk:'medio', legs:[{t:'Call',d:1,k:320,pr:4.3},{t:'Call',d:-2,k:324,pr:2.8},{t:'Call',d:1,k:328,pr:1.2}] },
+    ]
+  },
+  sj_jul: { name:'Soja Julio 26', fut:331.7, spot:323.29, min:275, max:395,
+    presets:[
+      { name:'Call vendido', risk:'bajo', legs:[{t:'Físico',d:1,k:331.7,pr:0},{t:'Call',d:-1,k:344,pr:5.9}] },
+      { name:'Bull spread', risk:'bajo', legs:[{t:'Call',d:1,k:336,pr:6.3},{t:'Call',d:-1,k:348,pr:2.9}] },
+      { name:'Collar', risk:'bajo', legs:[{t:'Físico',d:1,k:331.7,pr:0},{t:'Put',d:1,k:328,pr:8.3},{t:'Call',d:-1,k:348,pr:2.9}] },
+      { name:'Cóndor', risk:'medio', legs:[{t:'Call',d:1,k:336,pr:6.3},{t:'Call',d:-1,k:344,pr:3.8},{t:'Call',d:-1,k:356,pr:1.7},{t:'Call',d:1,k:364,pr:1.1}] },
+      { name:'Mariposa', risk:'medio', legs:[{t:'Call',d:1,k:332,pr:7.8},{t:'Call',d:-2,k:340,pr:5.0},{t:'Call',d:1,k:348,pr:2.9}] },
+      { name:'Cono comprado', risk:'alto', legs:[{t:'Call',d:1,k:332,pr:7.8},{t:'Put',d:1,k:332,pr:10.1}] },
+    ]
+  },
+  mz_jul: { name:'Maíz Julio 26', fut:182.5, spot:183.98, min:150, max:220,
+    presets:[
+      { name:'Call vendido', risk:'bajo', legs:[{t:'Físico',d:1,k:182.5,pr:0},{t:'Call',d:-1,k:188,pr:2.5}] },
+      { name:'Bull spread', risk:'bajo', legs:[{t:'Call',d:1,k:180,pr:5.1},{t:'Call',d:-1,k:188,pr:2.5}] },
+      { name:'Bear spread puts', risk:'bajo', legs:[{t:'Put',d:1,k:184,pr:6.3},{t:'Put',d:-1,k:176,pr:2.0}] },
+      { name:'Collar', risk:'bajo', legs:[{t:'Físico',d:1,k:182.5,pr:0},{t:'Put',d:1,k:180,pr:4.1},{t:'Call',d:-1,k:192,pr:1.9}] },
+      { name:'Mariposa puts', risk:'medio', legs:[{t:'Put',d:1,k:176,pr:2.0},{t:'Put',d:-2,k:180,pr:4.1},{t:'Put',d:1,k:184,pr:6.3}] },
+      { name:'Ratio put', risk:'alto', legs:[{t:'Put',d:1,k:184,pr:6.3},{t:'Put',d:-2,k:176,pr:2.0}] },
+    ]
+  }
+};
+
+const COLORS = ['#58a6ff','#3fb950','#d29922','#bc8cff','#ffa657','#f85149','#39d353'];
+let activeMarket = 'sj_may';
+let legs = [];
+let legCount = 0;
+let chartPL = null, chartPV = null;
+
+// Init market pills
+function initPills() {
+  const c = document.getElementById('marketPills');
+  c.innerHTML = '';
+  Object.entries(MARKETS).forEach(([k,m]) => {
+    const b = document.createElement('button');
+    b.className = 'market-pill' + (k===activeMarket?' active':'');
+    b.textContent = m.name;
+    b.onclick = () => setMarket(k);
+    c.appendChild(b);
+  });
+}
+
+function setMarket(k) {
+  activeMarket = k;
+  const m = MARKETS[k];
+  document.getElementById('mktName').textContent = m.name;
+  document.getElementById('futPx').value = m.fut;
+  document.getElementById('spotPx').value = m.spot;
+  document.getElementById('rangeMin').value = m.min;
+  document.getElementById('rangeMax').value = m.max;
+  initPills();
+  renderPresets();
+  clearLegs();
+}
+
+function updateMarket() {
+  MARKETS[activeMarket].fut = parseFloat(document.getElementById('futPx').value);
+  MARKETS[activeMarket].spot = parseFloat(document.getElementById('spotPx').value);
+}
+
+// Presets
+function renderPresets() {
+  const m = MARKETS[activeMarket];
+  const c = document.getElementById('presetGrid');
+  c.innerHTML = '';
+  m.presets.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'preset-btn';
+    const riskClass = p.risk==='bajo'?'risk-low':p.risk==='medio'?'risk-mid':'risk-high';
+    b.innerHTML = `<div class="preset-name">${p.name}</div><div class="preset-risk ${riskClass}">riesgo ${p.risk}</div>`;
+    b.onclick = () => loadPreset(p);
+    c.appendChild(b);
+  });
+}
+
+function loadPreset(p) {
+  legs = JSON.parse(JSON.stringify(p.legs));
+  renderLegs();
+  calculate();
+}
+
+// Legs
+function addLeg() {
+  if (legs.length >= 6) return;
+  const m = MARKETS[activeMarket];
+  legs.push({ t:'Call', d:1, k:m.fut, pr:5.0 });
+  renderLegs();
+}
+
+function removeLeg(i) {
+  legs.splice(i,1);
+  renderLegs();
+  if (legs.length > 0) calculate();
+  else clearResults();
+}
+
+function clearLegs() {
+  legs = [];
+  renderLegs();
+  clearResults();
+}
+
+function renderLegs() {
+  const c = document.getElementById('legsContainer');
+  c.innerHTML = '';
+  const addBtn = document.getElementById('addLegBtn');
+  addBtn.style.display = legs.length >= 6 ? 'none' : 'flex';
+
+  legs.forEach((lg, i) => {
+    const div = document.createElement('div');
+    div.className = 'leg';
+    const isFut = lg.t === 'Futuro';
+    const isFis = lg.t === 'Físico';
+    div.innerHTML = `
+      <div class="leg-header">
+        <span class="leg-num">PATA ${i+1}</span>
+        <span style="font-size:11px;color:${COLORS[i]}">●</span>
+      </div>
+      <button class="leg-remove" onclick="removeLeg(${i})">×</button>
+      <div class="leg-fields">
+        <div class="field">
+          <label>Instrumento</label>
+          <select onchange="legChange(${i},'t',this.value)">
+            <option ${lg.t==='Call'?'selected':''}>Call</option>
+            <option ${lg.t==='Put'?'selected':''}>Put</option>
+            <option ${lg.t==='Futuro'?'selected':''}>Futuro</option>
+            <option ${lg.t==='Físico'?'selected':''}>Físico</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Posición</label>
+          <select onchange="legChange(${i},'d',this.value==='Compra'?1:-1)" ${isFis?'disabled':''}>
+            <option ${lg.d===1?'selected':''}>Compra</option>
+            <option ${lg.d===-1?'selected':''}>Venta</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>${isFut?'Px futuro':isFis?'Px físico':'Strike'} (USD/t)</label>
+          <input type="number" step="0.5" value="${lg.k}" onchange="legChange(${i},'k',parseFloat(this.value))">
+        </div>
+        <div class="field">
+          <label>Prima (USD/t)</label>
+          <input type="number" step="0.1" value="${lg.pr}" ${isFut||isFis?'disabled style="opacity:.4"':''} onchange="legChange(${i},'pr',parseFloat(this.value))">
+        </div>
+      </div>`;
+    c.appendChild(div);
+  });
+}
+
+function legChange(i, field, val) {
+  legs[i][field] = val;
+  if (field === 't') {
+    if (val === 'Físico') { legs[i].d = 1; legs[i].pr = 0; legs[i].k = MARKETS[activeMarket].fut; }
+    if (val === 'Futuro') { legs[i].pr = 0; legs[i].k = MARKETS[activeMarket].fut; }
+    renderLegs();
+  }
+}
+
+// Payoff calculation
+function legPnl(lg, P) {
+  const m = MARKETS[activeMarket];
+  if (lg.t === 'Físico') return P - m.fut;
+  if (lg.t === 'Futuro') return lg.d * (P - lg.k);
+  if (lg.t === 'Call')   return lg.d * (Math.max(P - lg.k, 0) - lg.pr);
+  if (lg.t === 'Put')    return lg.d * (Math.max(lg.k - P, 0) - lg.pr);
+  return 0;
+}
+
+function totalPnl(P) { return legs.reduce((s,lg) => s + legPnl(lg,P), 0); }
+function finalPrice(P) {
+  const m = MARKETS[activeMarket];
+  const hasFisico = legs.some(l=>l.t==='Físico');
+  const base = hasFisico ? 0 : P;
+  return base + P + totalPnl(P) - (hasFisico ? P - m.fut : 0);
+}
+
+function calculate() {
+  updateMarket();
+  if (legs.length === 0) { clearResults(); return; }
+  const m = MARKETS[activeMarket];
+  const min = parseFloat(document.getElementById('rangeMin').value);
+  const max = parseFloat(document.getElementById('rangeMax').value);
+  const step = (max - min) / 60;
+  const prices = [];
+  for (let p = min; p <= max + 0.001; p += step) prices.push(parseFloat(p.toFixed(2)));
+
+  const totalPnlArr = prices.map(p => parseFloat(totalPnl(p).toFixed(3)));
+  const legPnlArrs  = legs.map(lg => prices.map(p => parseFloat(legPnl(lg,p).toFixed(3))));
+  const pvArr  = prices.map(p => parseFloat((p + totalPnl(p)).toFixed(3)));
+  const scArr  = prices;
+
+  // Metrics
+  const atFut = parseFloat((m.fut + totalPnl(m.fut)).toFixed(2));
+  const diffVsSC = parseFloat((atFut - m.fut).toFixed(2));
+  const prima = legs.filter(l=>l.t!=='Físico'&&l.t!=='Futuro')
+                    .reduce((s,l)=>s+(l.d>0?-l.pr:l.pr)*Math.abs(l.d),0);
+  const minPnl = Math.min(...totalPnlArr);
+  const maxPnl = Math.max(...totalPnlArr);
+
+  renderResults({ prices, totalPnlArr, legPnlArrs, pvArr, scArr, atFut, diffVsSC, prima, minPnl, maxPnl, m });
+}
+
+function clearResults() {
+  document.getElementById('resultsPane').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">Cargá las patas de tu estrategia<br>y presioná <strong>Calcular</strong></div>
+    </div>`;
+}
+
+function fmt(v, decimals=2) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  const s = v >= 0 ? '+' : '';
+  return s + v.toFixed(decimals);
+}
+
+function renderResults({ prices, totalPnlArr, legPnlArrs, pvArr, scArr, atFut, diffVsSC, prima, minPnl, maxPnl, m }) {
+  if (chartPL) { chartPL.destroy(); chartPL = null; }
+  if (chartPV) { chartPV.destroy(); chartPV = null; }
+
+  const diffClass = diffVsSC >= 0 ? 'mc-pos' : 'mc-neg';
+  const primaClass = prima >= 0 ? 'mc-pos' : 'mc-neg';
+  const minClass = minPnl >= 0 ? 'mc-pos' : 'mc-neg';
+
+  const legDescriptions = legs.map((lg,i) => {
+    const dir = lg.t==='Físico'?'base':(lg.d===1?'Compra':'Venta');
+    const pr = lg.t==='Físico'||lg.t==='Futuro' ? '' : ` · prima ${lg.pr}`;
+    return `<div class="breakdown-row">
+      <span class="breakdown-label"><span style="color:${COLORS[i]}">●</span> Pata ${i+1}: ${dir} ${lg.t} ${lg.t==='Físico'?'':lg.k}${pr}</span>
+      <span class="breakdown-val ${legPnlArrs[i][Math.round(prices.length/2)] >= 0 ? 'mc-pos':'mc-neg'}">${fmt(legPnlArrs[i].find((_,j)=>Math.abs(prices[j]-m.fut)<0.5))} USD/t al futuro</span>
+    </div>`;
+  }).join('');
+
+  // Table rows: every ~5 USD step
+  const tableStep = Math.max(1, Math.round(prices.length / 20));
+  const tableRows = prices.filter((_,i) => i % tableStep === 0 || Math.abs(prices[i]-m.fut) < (prices[1]-prices[0])*1.5)
+    .map(p => {
+      const idx = prices.findIndex(pp => Math.abs(pp-p)<0.01);
+      const pnl = totalPnlArr[idx];
+      const pv = pvArr[idx];
+      const diff = pv - p;
+      const isRef = Math.abs(p - m.fut) < (prices[1]-prices[0])*1.5;
+      const legCells = legs.map((_,li) => {
+        const v = legPnlArrs[li][idx];
+        return `<td class="${v>0?'td-pos':v<0?'td-neg':'td-neu'}">${fmt(v)}</td>`;
+      }).join('');
+      return `<tr class="${isRef?'td-highlight':''}">
+        <td>${p.toFixed(1)}</td>
+        <td class="td-neu">${p.toFixed(2)}</td>
+        ${legCells}
+        <td class="${pnl>0?'td-pos':pnl<0?'td-neg':'td-neu'}" style="font-weight:500">${fmt(pnl)}</td>
+        <td class="${diff>0?'td-pos':diff<0?'td-neg':'td-neu'}">${fmt(diff)}</td>
+        <td style="font-weight:500">${pv.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+  const legHeaders = legs.map((_,i) => `<th>P${i+1}</th>`).join('');
+
+  const pane = document.getElementById('resultsPane');
+  pane.innerHTML = `
+    <!-- METRICS -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-card-label">PV al precio futuro</div>
+        <div class="metric-card-val mc-acc">${atFut.toFixed(2)} <span style="font-size:12px;color:var(--muted)">USD/t</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-label">vs sin cobertura</div>
+        <div class="metric-card-val ${diffClass}">${fmt(diffVsSC)} <span style="font-size:12px;color:var(--muted)">USD/t</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-label">Prima neta</div>
+        <div class="metric-card-val ${primaClass}">${fmt(prima)} <span style="font-size:12px;color:var(--muted)">USD/t</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-label">P&L mínimo</div>
+        <div class="metric-card-val ${minClass}">${fmt(minPnl)} <span style="font-size:12px;color:var(--muted)">USD/t</span></div>
+      </div>
+    </div>
+
+    <!-- P&L POR PATA -->
+    <div class="breakdown-card">
+      <div class="section-title">Resultado por pata al precio futuro (${m.fut} USD/t)</div>
+      ${legDescriptions}
+      <div class="breakdown-row breakdown-total">
+        <span class="breakdown-label" style="font-weight:500;color:var(--text)">P&L total estrategia</span>
+        <span class="breakdown-val ${totalPnl(m.fut)>=0?'mc-pos':'mc-neg'}">${fmt(totalPnl(m.fut))} USD/t</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label" style="font-weight:500;color:var(--text)">Precio de venta final</span>
+        <span class="breakdown-val mc-acc">${atFut.toFixed(2)} USD/t</span>
+      </div>
+    </div>
+
+    <!-- CHART P&L -->
+    <div class="chart-card">
+      <div class="chart-title-row">
+        <div>
+          <div class="chart-title">P&L por pata + total</div>
+          <div class="chart-subtitle">Resultado en USD/t según precio de mercado al vencimiento</div>
+        </div>
+      </div>
+      <div class="toggle-row" id="legendPL"></div>
+      <div class="chart-wrap" style="height:260px"><canvas id="chartPL" role="img" aria-label="Gráfico P&L por pata"></canvas></div>
+    </div>
+
+    <!-- CHART PRECIO FINAL -->
+    <div class="chart-card">
+      <div class="chart-title-row">
+        <div>
+          <div class="chart-title">Precio de venta final vs sin cobertura</div>
+          <div class="chart-subtitle">A qué precio terminás vendiendo en cada escenario</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chartPV" role="img" aria-label="Gráfico precio de venta final"></canvas></div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-card">
+      <div style="padding:12px 14px 8px;"><div class="section-title">Tabla de valores (fila destacada = precio futuro actual)</div></div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Precio mkt</th>
+              <th>Sin cob.</th>
+              ${legHeaders}
+              <th>P&L total</th>
+              <th>Diff vs SC</th>
+              <th>PV final</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Build P&L chart
+  const plDatasets = legs.map((lg,i) => ({
+    label: `P${i+1}: ${lg.d===1?'▲':'▼'} ${lg.t} ${lg.t!=='Físico'&&lg.t!=='Futuro'?lg.k:''}`,
+    data: legPnlArrs[i],
+    borderColor: COLORS[i],
+    borderWidth: 1.5,
+    pointRadius: 0,
+    tension: 0,
+    borderDash: [4,3],
+    fill: false
+  }));
+  plDatasets.push({
+    label: 'P&L Total',
+    data: totalPnlArr,
+    borderColor: '#ffffff',
+    borderWidth: 2.5,
+    pointRadius: 0,
+    tension: 0,
+    fill: { target: { value:0 }, above:'rgba(63,185,80,.15)', below:'rgba(248,81,73,.15)' }
+  });
+
+  // Legend
+  const legendPL = document.getElementById('legendPL');
+  [...legs.map((lg,i)=>({ label:`P${i+1}: ${lg.d===1?'▲':'▼'} ${lg.t} ${lg.t!=='Físico'&&lg.t!=='Futuro'?lg.k:''}`, color:COLORS[i] })),
+   { label:'P&L Total', color:'#ffffff' }]
+  .forEach(item => {
+    const el = document.createElement('label');
+    el.className = 'toggle-item';
+    el.innerHTML = `<input type="checkbox" checked> <span style="width:20px;height:2px;background:${item.color};display:inline-block;border-radius:2px"></span> <span>${item.label}</span>`;
+    el.querySelector('input').addEventListener('change', function() {
+      const idx = [...legendPL.children].indexOf(el);
+      if (chartPL) {
+        chartPL.data.datasets[idx].hidden = !this.checked;
+        chartPL.update();
+      }
+    });
+    legendPL.appendChild(el);
+  });
+
+  const xLabels = prices.map(p => p.toFixed(1));
+
+  chartPL = new Chart(document.getElementById('chartPL'), {
+    type: 'line',
+    data: { labels: xLabels, datasets: plDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        mode: 'index', intersect: false,
+        callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)} USD/t` }
+      }},
+      scales: {
+        x: { ticks: { maxTicksLimit:10, font:{size:10}, color:'#8b949e' }, grid: { color:'rgba(48,54,61,.6)' } },
+        y: { ticks: { font:{size:10}, color:'#8b949e', callback: v=>v.toFixed(0) }, grid: { color:'rgba(48,54,61,.6)' } }
+      },
+      annotation: {}
+    }
+  });
+
+  chartPV = new Chart(document.getElementById('chartPV'), {
+    type: 'line',
+    data: { labels: xLabels, datasets: [
+      { label:'Sin cobertura', data: scArr, borderColor:'#8b949e', borderWidth:1.5, borderDash:[5,4], pointRadius:0, tension:0, fill:false },
+      { label:'Precio venta final', data: pvArr, borderColor:'#58a6ff', borderWidth:2.5, pointRadius:0, tension:0,
+        fill: { target:1, above:'rgba(63,185,80,.12)', below:'rgba(248,81,73,.12)' } }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display:false }, tooltip: {
+        mode:'index', intersect:false,
+        callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)} USD/t` }
+      }},
+      scales: {
+        x: { ticks: { maxTicksLimit:10, font:{size:10}, color:'#8b949e' }, grid: { color:'rgba(48,54,61,.6)' } },
+        y: { ticks: { font:{size:10}, color:'#8b949e', callback: v=>v.toFixed(1) }, grid: { color:'rgba(48,54,61,.6)' } }
+      }
+    }
+  });
+
+  // Legend PV
+  const pvLegend = document.createElement('div');
+  pvLegend.className = 'toggle-row';
+  pvLegend.style.marginBottom = '10px';
+  [{ label:'Sin cobertura', color:'#8b949e' },{ label:'Precio venta final con estrategia', color:'#58a6ff' }]
+  .forEach(item => {
+    const span = document.createElement('span');
+    span.className = 'toggle-item';
+    span.innerHTML = `<span style="width:20px;height:2px;background:${item.color};display:inline-block;border-radius:2px"></span> <span>${item.label}</span>`;
+    pvLegend.appendChild(span);
+  });
+  document.getElementById('chartPV').parentElement.insertAdjacentElement('beforebegin', pvLegend);
+}
+
+// Init
+setMarket('sj_may');
+</script>
+</body>
+</html>
